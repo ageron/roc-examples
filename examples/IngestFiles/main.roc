@@ -1,5 +1,5 @@
 app [main!] {
-	roc: "nightly-2026-10-17-5f126ac",
+	roc: "nightly-2026-10-24-f6c6cfb",
 }
 
 import "sample.txt" as sample : Str
