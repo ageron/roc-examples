@@ -1,5 +1,5 @@
 app [] {
-	roc: "nightly-2026-10-27-de79a0f",
+	roc: "nightly-2026-10-31-f7bef6b",
 }
 
 ### start snippet example
