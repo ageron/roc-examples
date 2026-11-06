@@ -1,5 +1,5 @@
 app [] {
-	roc: "nightly-2026-10-27-de79a0f",
+	roc: "nightly-2026-11-06-34f137a",
 }
 
 Hanoi := State
