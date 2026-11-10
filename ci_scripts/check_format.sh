@@ -31,3 +31,11 @@ for file in $(eval "$find_command"); do
     echo "Checking if $file was formatted with roc fmt..."
     "$roc" fmt --check "$file"
 done
+
+# CI scripts written in Roc always use the version they pin, independent of the examples.
+for file in ./ci_scripts/*.roc; do
+    roc="$(./ci_scripts/get_roc.sh "$(./ci_scripts/example_roc_version.sh "$file")")"
+
+    echo "Checking if $file was formatted with roc fmt..."
+    "$roc" fmt --check "$file"
+done

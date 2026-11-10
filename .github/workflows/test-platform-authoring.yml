@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'examples/PlatformAuthoring/**'
-      - 'ci_scripts/test_platform_authoring.py'
+      - 'ci_scripts/test_platform_authoring.roc'
+      - 'ci_scripts/example_roc_version.sh'
       - 'ci_scripts/test_example.sh'
       - '.github/workflows/test-platform-authoring.yml'
   workflow_dispatch:
@@ -37,44 +38,48 @@ jobs:
       - name: Select Rust
         run: rustup default 1.98.1
 
-      - name: Download the example's pinned Roc compiler
-        shell: python
+      # The example and its test script pin their own Roc versions, so that
+      # upgrading the example does not depend on upgrading the script.
+      - name: Read the pinned Roc versions
+        id: pins
+        shell: bash
         run: |
-          import os
-          from pathlib import Path
-          import platform
-          import re
-          import tarfile
-          import urllib.request
-          import zipfile
+          example="$(./ci_scripts/example_roc_version.sh examples/PlatformAuthoring)"
+          script="$(./ci_scripts/example_roc_version.sh ci_scripts/test_platform_authoring.roc)"
+          echo "example=$example" >> "$GITHUB_OUTPUT"
+          echo "script=$script" >> "$GITHUB_OUTPUT"
 
-          source = Path("examples/PlatformAuthoring/main.roc").read_text()
-          tag = re.search(r'roc: "(nightly-[^\"]+)"', source).group(1)
-          suffix = tag.removeprefix("nightly-")
-          system = platform.system()
-          arm = platform.machine().lower() in ("arm64", "aarch64")
-          arch = {
-              "Darwin": "macos_apple_silicon" if arm else "macos_x86_64",
-              "Linux": "linux_arm64" if arm else "linux_x86_64",
-              "Windows": "windows_x86_64",
-          }[system]
-          extension = "zip" if system == "Windows" else "tar.gz"
-          filename = f"roc_nightly-{arch}-{suffix}.{extension}"
-          directory = Path(os.environ["RUNNER_TEMP"]) / "roc-platform-compiler"
-          directory.mkdir()
-          archive = directory / filename
-          urllib.request.urlretrieve(
-              f"https://github.com/roc-lang/nightlies/releases/download/{tag}/{filename}", archive
-          )
-          if system == "Windows":
-              with zipfile.ZipFile(archive) as bundle:
-                  bundle.extractall(directory)
-          else:
-              with tarfile.open(archive) as bundle:
-                  bundle.extractall(directory, filter="data")
-          executable = next(directory.rglob("roc.exe" if system == "Windows" else "roc"))
-          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write(f"ROC={executable}\n")
+      - name: Install the example's Roc
+        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4 # v0.4.0
+        with:
+          version: nightly
+          nightly-tag: ${{ steps.pins.outputs.example }}
+          cache: false
 
+      # setup-roc extracts into the workspace, so move this Roc out of the way of
+      # the next setup-roc. The test script gets its path as an argument.
+      - name: Move the example's Roc aside
+        id: example-roc
+        shell: bash
+        env:
+          NIGHTLY_TAG: ${{ steps.pins.outputs.example }}
+        run: |
+          dir="$RUNNER_TEMP/example-roc"
+          mv roc_nightly-*-"${NIGHTLY_TAG#nightly-}" "$dir"
+          exe=roc
+          if [ "$RUNNER_OS" = Windows ]; then exe=roc.exe; fi
+          echo "roc=$dir/$exe" >> "$GITHUB_OUTPUT"
+
+      - name: Install the test script's Roc
+        uses: roc-lang/setup-roc@dd81390553b0a1236aedb61cdd4c0ed7cf7eaec4 # v0.4.0
+        with:
+          version: nightly
+          nightly-tag: ${{ steps.pins.outputs.script }}
+          cache: false
+
+      # Not bash: on Windows, Git's /usr/bin/link would shadow the MSVC link.exe that rustc needs.
       - name: Build and run every host
-        run: python ci_scripts/test_platform_authoring.py
+        shell: pwsh
+        env:
+          EXAMPLE_ROC: ${{ steps.example-roc.outputs.roc }}
+        run: roc --no-cache ci_scripts/test_platform_authoring.roc $env:EXAMPLE_ROC

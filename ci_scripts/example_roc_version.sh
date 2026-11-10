@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 
 # Prints the nightly tag that an example pins in its header, e.g. nightly-2026-10-09-258ab27.
+# Also accepts a single .roc file, like a CI script that pins its own version.
 # Usage: ./ci_scripts/example_roc_version.sh examples/Commands
 
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: example_roc_version.sh EXAMPLE_DIR" >&2
+  echo "Usage: example_roc_version.sh EXAMPLE_DIR_OR_ROC_FILE" >&2
   exit 1
 fi
 

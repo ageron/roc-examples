@@ -147,8 +147,11 @@ case "$name" in
     "$roc" test --no-cache examples/PatternMatching/PatternMatching.roc
     ;;
   PlatformAuthoring)
+    # The test script runs with the Roc version it pins, and tests the example with $roc.
     # The dedicated platform-authoring workflow also tests the Zig and Rust hosts.
-    python3 ci_scripts/test_platform_authoring.py --roc "$roc" --host c
+    script=ci_scripts/test_platform_authoring.roc
+    script_roc="$(./ci_scripts/get_roc.sh "$(./ci_scripts/example_roc_version.sh "$script")")"
+    "$script_roc" --no-cache "$script" "$roc" c
     ;;
   Polymorphism)
     "$roc" test --no-cache "examples/$name/main.roc"
